@@ -1,0 +1,8 @@
+langchain
+langchain-community
+langchain-openai
+langchain-groq
+flask
+flask-cors
+python-dotenv
+sqlalchemy

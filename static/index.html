@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QueryMind — SQL Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #080c14;
+  --surface:  #0e1420;
+  --surface2: #131929;
+  --surface3: #1a2235;
+  --border:   #1e2d45;
+  --accent:   #4f9eff;
+  --accent2:  #00d4aa;
+  --accent3:  #a78bfa;
+  --text:     #e2eaf6;
+  --muted:    #607898;
+  --danger:   #f87171;
+  --radius:   14px;
+  --glow:     0 0 20px rgba(79,158,255,0.15);
+}
+
+/* ── Light theme override ── */
+html[data-theme="light"] {
+  --bg:       #f4f7fc;
+  --surface:  #ffffff;
+  --surface2: #ffffff;
+  --surface3: #eef2fa;
+  --border:   #dbe4f3;
+  --accent:   #2563eb;
+  --accent2:  #0d9488;
+  --accent3:  #7c3aed;
+  --text:     #16213a;
+  --muted:    #6b7e9c;
+  --danger:   #dc2626;
+  --glow:     0 0 20px rgba(37,99,235,0.12);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+/* ── Live Wallpaper Canvas ── */
+#wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  transition: background .25s, color .25s;
+}
+
+/* ── Offline banner ── */
+.offline-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: linear-gradient(90deg, #7f1d1d, #991b1b);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.offline-banner.show { display: flex; }
+.offline-banner button {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.4);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.offline-banner button:hover { background: rgba(255,255,255,.28); }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 290px;
+  background: rgba(14,20,32,0.85);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+html[data-theme="light"] .sidebar { background: rgba(255,255,255,0.9); }
+
+.sidebar-top {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 6px;
+}
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #4f9eff 0%, #a78bfa 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px;
+  box-shadow: 0 4px 14px rgba(79,158,255,0.35);
+}
+.logo-name { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.logo-tag  { font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+.db-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 7px 10px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.db-badge .db-dot {
+  width: 7px; height: 7px;
+  background: var(--accent2);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+.db-badge.offline .db-dot { background: var(--danger); animation: none; }
+.db-badge .db-name {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent2);
+  font-size: 11px;
+}
+.db-badge .db-status { margin-left:auto; color:#00d4aa; font-size:10px; }
+.db-badge.offline .db-status { color: var(--danger); }
+
+/* Model selector */
+.model-select-wrap {
+  margin-top: 10px;
+}
+.model-select-wrap label {
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  display: block;
+  margin-bottom: 5px;
+}
+#modelSelect {
+  width: 100%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 7px 8px;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+}
+#modelSelect:focus { border-color: var(--accent); }
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  padding: 12px 18px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.stat-pill {
+  flex: 1;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 6px;
+  text-align: center;
+}
+.stat-num  { font-size: 15px; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+.stat-label{ font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 1px; }
+
+/* Schema */
+.section-label {
+  padding: 14px 18px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-label svg { opacity: .6; }
+.section-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 18px;
+}
+
+/* Schema search */
+.schema-search-wrap { padding: 0 18px 8px; }
+#schemaSearch {
+  width: 100%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11.5px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  outline: none;
+}
+#schemaSearch:focus { border-color: var(--accent); }
+#schemaSearch::placeholder { color: var(--muted); }
+
+.schema-scroll { overflow-y: auto; flex: 1; }
+.schema-scroll::-webkit-scrollbar { width: 4px; }
+.schema-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.table-card {
+  margin: 3px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.table-card:hover { border-color: rgba(79,158,255,.3); }
+.table-card.hidden-by-search { display: none; }
+.table-name {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+}
+.table-name .tbl-icon { font-size: 13px; }
+.table-name .arrow { margin-left: auto; font-size: 9px; color: var(--muted); transition: transform .2s; }
+.table-name.open .arrow { transform: rotate(90deg); }
+.table-cols {
+  display: none;
+  padding: 4px 12px 8px 30px;
+  border-top: 1px solid var(--border);
+}
+.table-cols.visible { display: block; }
+.col-row { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); padding: 2px 0; }
+.col-row::before { content: '▸ '; color: var(--accent2); font-size: 9px; }
+.col-row.hidden-by-search { display: none; }
+mark.search-hit { background: rgba(79,158,255,.35); color: var(--text); border-radius: 3px; padding: 0 2px; }
+
+/* Query history */
+.history-section {
+  border-top: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.history-list { padding: 0 10px; }
+.history-item {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .15s, color .15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.history-item:hover { background: var(--surface3); color: var(--text); }
+.history-item::before { content: '↺'; font-size: 10px; color: var(--accent3); flex-shrink: 0; }
+
+/* Suggestions */
+.sugg-section {
+  border-top: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.sugg-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 4px 10px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  line-height: 1.4;
+}
+.sugg-chip:hover { border-color: var(--accent); background: rgba(79,158,255,.06); }
+.sugg-chip .chip-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Main ── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+  background: rgba(8,12,20,0.6);
+  backdrop-filter: blur(8px);
+}
+html[data-theme="light"] .main { background: rgba(244,247,252,0.7); }
+
+/* Topbar */
+.topbar {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(14,20,32,0.7);
+  backdrop-filter: blur(16px);
+}
+html[data-theme="light"] .topbar { background: rgba(255,255,255,0.75); }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-size: 14px; font-weight: 600; }
+.topbar-sub   { font-size: 11px; color: var(--muted); }
+.status-dot   { width: 8px; height: 8px; background: var(--accent2); border-radius: 50%; animation: pulse 2s infinite; }
+.status-dot.offline { background: var(--danger); animation: none; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.icon-btn {
+  width: 32px; height: 32px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.clear-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex; align-items: center; gap: 5px;
+}
+.clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Messages */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scroll-behavior: smooth;
+}
+#messages::-webkit-scrollbar { width: 5px; }
+#messages::-webkit-scrollbar-track { background: transparent; }
+#messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.msg {
+  display: flex;
+  gap: 11px;
+  max-width: 880px;
+  animation: fadeUp .28s ease;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+.avatar {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.msg.user .avatar { background: linear-gradient(135deg, #2563eb, #a78bfa); }
+.msg.bot  .avatar { background: linear-gradient(135deg, #0d9488, #059669); }
+.msg.error .avatar { background: linear-gradient(135deg, #991b1b, #dc2626); }
+
+.msg-content { display: flex; flex-direction: column; gap: 4px; max-width: 720px; }
+.msg.user .msg-content { align-items: flex-end; }
+
+.bubble {
+  padding: 11px 15px;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  position: relative;
+}
+.msg.user .bubble {
+  background: rgba(37,99,235,0.15);
+  border: 1px solid rgba(79,158,255,0.25);
+  border-top-right-radius: 4px;
+}
+.msg.bot .bubble {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-top-left-radius: 4px;
+}
+.msg.error .bubble {
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.4);
+  border-top-left-radius: 4px;
+  color: var(--danger);
+}
+.bubble code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  background: rgba(255,255,255,.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+/* Error bubble */
+.error-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+.retry-btn {
+  margin-top: 9px;
+  background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.4);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background .2s;
+}
+.retry-btn:hover { background: rgba(248,113,113,0.22); }
+
+/* SQL block */
+.sql-block {
+  margin-top: 8px;
+  background: rgba(8,12,20,0.7);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  overflow: hidden;
+}
+html[data-theme="light"] .sql-block { background: rgba(0,0,0,0.03); }
+.sql-header {
+  padding: 5px 10px;
+  background: rgba(79,158,255,.08);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  display: flex; align-items: center; gap: 5px;
+  justify-content: space-between;
+}
+.sql-body {
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--accent2);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Results table */
+.result-table-wrap {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 320px;
+}
+table.result-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+table.result-table th {
+  background: var(--surface3);
+  color: var(--accent);
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+table.result-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+table.result-table tr:last-child td { border-bottom: none; }
+table.result-table tr:hover td { background: rgba(79,158,255,.05); }
+
+/* Copy button */
+.copy-btn {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all .2s;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.bubble-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.timestamp { font-size: 10px; color: var(--muted); display:flex; align-items:center; gap:6px; }
+.timestamp .exec-time { color: var(--accent3); font-family:'JetBrains Mono',monospace; }
+
+/* Thinking dots */
+.thinking .bubble { display:flex; gap:5px; align-items:center; padding:14px 18px; }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--muted); animation:bounce .9s infinite; }
+.dot:nth-child(2){animation-delay:.2s;}
+.dot:nth-child(3){animation-delay:.4s;}
+@keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4;} 50%{transform:translateY(-6px);opacity:1;} }
+
+/* Welcome */
+.welcome {
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--muted);
+  margin: auto;
+}
+.welcome-icon { font-size: 52px; margin-bottom: 14px; filter: drop-shadow(0 0 20px rgba(79,158,255,.4)); }
+.welcome h2  { font-size: 22px; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+.welcome p   { font-size: 13px; max-width: 380px; margin: 0 auto 22px; line-height: 1.6; }
+.welcome-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.welcome-chip {
+  padding: 6px 12px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+}
+.welcome-chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,158,255,.08); }
+
+/* Input */
+.inputbar {
+  padding: 14px 22px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(14,20,32,0.7);
+  backdrop-filter: blur(16px);
+}
+html[data-theme="light"] .inputbar { background: rgba(255,255,255,0.75); }
+.input-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-wrap.invalid { border-color: var(--danger); }
+.input-wrap:focus-within { border-color: var(--accent); box-shadow: var(--glow); }
+#userInput {
+  flex: 1;
+  background: transparent;
+  border: none; outline: none;
+  color: var(--text);
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  resize: none;
+  max-height: 130px;
+  line-height: 1.5;
+}
+#userInput::placeholder { color: var(--muted); }
+.input-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+#sendBtn {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  border: none; border-radius: 9px;
+  color: #fff; font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .2s, transform .1s;
+  box-shadow: 0 3px 10px rgba(79,158,255,.3);
+}
+#sendBtn:hover   { opacity: .88; }
+#sendBtn:active  { transform: scale(.93); }
+#sendBtn:disabled{ opacity: .35; cursor: not-allowed; }
+.hint { font-size: 10px; color: var(--muted); margin-top: 7px; text-align: center; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;}
+.char-counter { font-family: 'JetBrains Mono', monospace; }
+.char-counter.warn { color: var(--danger); }
+.input-error {
+  font-size: 10.5px;
+  color: var(--danger);
+  margin-top: 6px;
+  text-align: center;
+  display: none;
+}
+.input-error.show { display: block; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  padding: 10px 16px;
+  background: var(--surface3);
+  border: 1px solid var(--accent2);
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--accent2);
+  z-index: 999;
+  animation: fadeUp .3s ease;
+}
+</style>
+</head>
+<body>
+
+<!-- Offline banner -->
+<div class="offline-banner" id="offlineBanner">
+  ⚠️ Server Offline — can't reach the Flask backend on <span id="apiUrlLabel"></span>
+  <button onclick="checkServer(true)">Retry connection</button>
+</div>
+
+<!-- Live wallpaper -->
+<canvas id="wallpaper"></canvas>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">
+      <div class="logo-icon">🧠</div>
+      <div>
+        <div class="logo-name">QueryMind</div>
+        <div class="logo-tag">SQL Agent · Groq + LangChain</div>
+      </div>
+    </div>
+    <div class="db-badge" id="dbBadge">
+      <div class="db-dot"></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
+      <span class="db-name">company.db</span>
+      <span class="db-status" id="dbStatus">● Connected</span>
+    </div>
+
+    <div class="model-select-wrap">
+      <label>Model</label>
+      <select id="modelSelect">
+        <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+        <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+        <option value="mixtral-8x7b-32768">mixtral-8x7b</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-pill">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Tables</div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-num">10</div>
+      <div class="stat-label">Employees</div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-num" id="queryCount">0</div>
+      <div class="stat-label">Queries</div>
+    </div>
+  </div>
+
+  <!-- Schema -->
+  <div class="section-label-row">
+    <div class="section-label" style="padding-bottom:0;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Schema
+    </div>
+  </div>
+  <div class="schema-search-wrap">
+    <input id="schemaSearch" type="text" placeholder="Search tables / columns…" oninput="filterSchema(this.value)"/>
+  </div>
+  <div class="schema-scroll" id="schemaContainer"></div>
+
+  <!-- History -->
+  <div class="history-section">
+    <div class="section-label">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Recent Queries
+    </div>
+    <div class="history-list" id="historyList">
+      <div style="font-size:11px;color:var(--muted);padding:4px 10px;">No queries yet</div>
+    </div>
+  </div>
+
+  <!-- Suggestions -->
+  <div class="sugg-section">
+    <div class="section-label">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      Try Asking
+    </div>
+    <div class="sugg-chip" onclick="usePrompt(this)"><span class="chip-icon">💰</span>Who are the top 3 highest-paid employees?</div>
+    <div class="sugg-chip" onclick="usePrompt(this)"><span class="chip-icon">🚀</span>List all projects that are In Progress</div>
+    <div class="sugg-chip" onclick="usePrompt(this)"><span class="chip-icon">🏢</span>Which department has the highest budget?</div>
+    <div class="sugg-chip" onclick="usePrompt(this)"><span class="chip-icon">👥</span>How many employees per department?</div>
+    <div class="sugg-chip" onclick="usePrompt(this)"><span class="chip-icon">📅</span>Show employees hired after 2022</div>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="status-dot" id="statusDot"></div>
+      <div>
+        <div class="topbar-title">SQL Agent Chatbot</div>
+        <div class="topbar-sub" id="topbarSub">Natural language → SQL → Results</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+      <button class="icon-btn" onclick="exportChat()" title="Export chat">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <button class="clear-btn" onclick="clearChat()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <div id="messages">
+    <div class="welcome" id="welcomeBlock">
+      <div class="welcome-icon">🧠</div>
+      <h2>Ask anything about your data</h2>
+      <p>Type a question in plain English — the agent writes and runs the SQL automatically.</p>
+      <div class="welcome-chips">
+        <div class="welcome-chip" onclick="usePrompt(this)">📊 Department budgets</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">👑 Highest paid employee</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">🔗 Project assignments</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">📅 Recent hires</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="inputbar">
+    <div class="input-wrap" id="inputWrap">
+      <textarea id="userInput" rows="1" placeholder="Ask a question about the database…" maxlength="600"></textarea>
+      <div class="input-actions">
+        <button id="sendBtn" onclick="sendMessage()" title="Send (Enter)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="input-error" id="inputError"></div>
+    <div class="hint">
+      <span>Enter to send · Shift+Enter for new line</span>
+      <span class="char-counter" id="charCounter">0 / 600</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:5000";
+let queryCount = 0;
+let queryHistory = [];
+let isWaiting = false;
+let serverOnline = true;
+const STORAGE_KEY = "querymind_chat_v1";
+const HISTORY_KEY = "querymind_history_v1";
+const THEME_KEY = "querymind_theme_v1";
+
+document.getElementById("apiUrlLabel").textContent = API;
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeBtn").textContent = theme === "light" ? "☀️" : "🌙";
+  localStorage.setItem(THEME_KEY, theme);
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+  applyTheme(cur);
+}
+applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+
+// ── Live Wallpaper: floating data nodes ────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('wallpaper');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const NODE_COUNT = 55;
+  const nodes = Array.from({length: NODE_COUNT}, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - .5) * .35,
+    vy: (Math.random() - .5) * .35,
+    r: Math.random() * 2 + 1,
+    hue: Math.random() > .6 ? 210 : Math.random() > .5 ? 170 : 260,
+    pulse: Math.random() * Math.PI * 2,
+  }));
+
+  const anchors = [
+    {x: .15, y: .2}, {x: .5, y: .12}, {x: .82, y: .25},
+    {x: .1,  y: .7}, {x: .6, y: .75}, {x: .88, y: .65},
+  ];
+
+  let frame = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frame++;
+
+    const W = canvas.width, H = canvas.height;
+
+    ctx.strokeStyle = 'rgba(30,45,70,0.35)';
+    ctx.lineWidth = .5;
+    const gsize = 60;
+    for (let x = 0; x < W; x += gsize) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += gsize) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    anchors.forEach(a => {
+      const px = a.x * W, py = a.y * H;
+      const glow = Math.sin(frame * .018 + a.x * 10) * .5 + .5;
+      ctx.strokeStyle = `rgba(79,158,255,${0.12 + glow * 0.12})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px - 18, py - 10, 36, 20);
+      ctx.fillStyle = `rgba(79,158,255,${0.3 + glow * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy; n.pulse += .025;
+      if (n.x < 0) n.x = W; if (n.x > W) n.x = 0;
+      if (n.y < 0) n.y = H; if (n.y > H) n.y = 0;
+
+      const alpha = (Math.sin(n.pulse) * .5 + .5) * .55 + .15;
+      ctx.fillStyle = `hsla(${n.hue},80%,65%,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 110) {
+          const alpha = (1 - dist / 110) * 0.18;
+          ctx.strokeStyle = `rgba(79,158,255,${alpha})`;
+          ctx.lineWidth = .6;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    const t = frame * .012;
+    const packets = [
+      {x: (Math.sin(t) * .4 + .5) * W, y: (Math.cos(t * .7) * .3 + .5) * H, c: '79,158,255'},
+      {x: (Math.cos(t*.8) * .35 + .5) * W, y: (Math.sin(t*1.1) * .35 + .6) * H, c: '0,212,170'},
+      {x: (Math.sin(t*1.3+1) * .3 + .5) * W, y: (Math.cos(t*.6+2) * .28 + .4) * H, c: '167,139,250'},
+    ];
+    packets.forEach(p => {
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 8);
+      g.addColorStop(0, `rgba(${p.c},0.8)`);
+      g.addColorStop(1, `rgba(${p.c},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── Server connectivity check ───────────────────────────────────────────────
+async function checkServer(manual) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(`${API}/api/schema`, {signal: ctrl.signal});
+    clearTimeout(t);
+    if (!res.ok) throw new Error("bad status");
+    setServerStatus(true);
+    if (manual) showToast("Connected ✓");
+    return true;
+  } catch (e) {
+    setServerStatus(false);
+    if (manual) showToast("Still offline — check Flask server");
+    return false;
+  }
+}
+
+function setServerStatus(online) {
+  serverOnline = online;
+  document.getElementById("offlineBanner").classList.toggle("show", !online);
+  document.getElementById("statusDot").classList.toggle("offline", !online);
+  document.getElementById("dbBadge").classList.toggle("offline", !online);
+  document.getElementById("dbStatus").textContent = online ? "● Connected" : "● Offline";
+  document.getElementById("topbarSub").textContent = online
+    ? "Natural language → SQL → Results"
+    : "Backend unreachable — check Flask server";
+}
+
+// ── Schema loader ──────────────────────────────────────────────────────────
+const TABLE_ICONS = {
+  departments: '🏢', employees: '👤', projects: '🚀', project_assignments: '🔗'
+};
+let schemaData = {};
+
+async function loadSchema() {
+  const online = await checkServer(false);
+  if (!online) return;
+  try {
+    const res = await fetch(`${API}/api/schema`);
+    const tables = await res.json();
+    schemaData = tables;
+    renderSchema(tables);
+  } catch {
+    setServerStatus(false);
+  }
+}
+
+function renderSchema(tables) {
+  const container = document.getElementById("schemaContainer");
+  container.innerHTML = "";
+  for (const [tbl, cols] of Object.entries(tables)) {
+    const card = document.createElement("div");
+    card.className = "table-card";
+    card.dataset.table = tbl;
+    card.innerHTML = `
+      <div class="table-name" onclick="toggleTable(this)">
+        <span class="tbl-icon">${TABLE_ICONS[tbl] || '📋'}</span>
+        <span class="tbl-label">${tbl}</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="table-cols">
+        ${cols.map(c => `<div class="col-row" data-col="${c}">${c}</div>`).join("")}
+      </div>`;
+    container.appendChild(card);
+  }
+}
+
+function toggleTable(el) {
+  el.classList.toggle("open");
+  el.nextElementSibling.classList.toggle("visible");
+}
+
+function filterSchema(query) {
+  const q = query.trim().toLowerCase();
+  const cards = document.querySelectorAll(".table-card");
+  cards.forEach(card => {
+    const tbl = card.dataset.table.toLowerCase();
+    const colRows = card.querySelectorAll(".col-row");
+    let anyColMatch = false;
+    colRows.forEach(cr => {
+      const col = cr.dataset.col.toLowerCase();
+      const match = !q || col.includes(q);
+      cr.classList.toggle("hidden-by-search", !match);
+      if (match && q) anyColMatch = true;
+    });
+    const tableMatch = !q || tbl.includes(q);
+    const show = !q || tableMatch || anyColMatch;
+    card.classList.toggle("hidden-by-search", !show);
+    if (q && show) {
+      const nameEl = card.querySelector(".table-name");
+      const colsEl = card.querySelector(".table-cols");
+      if (anyColMatch && !tableMatch) {
+        nameEl.classList.add("open");
+        colsEl.classList.add("visible");
+      }
+    }
+  });
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function addToHistory(question) {
+  queryHistory.unshift(question);
+  if (queryHistory.length > 5) queryHistory.pop();
+  renderHistory();
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(queryHistory));
+}
+
+function renderHistory() {
+  const list = document.getElementById("historyList");
+  if (!queryHistory.length) {
+    list.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:4px 10px;">No queries yet</div>`;
+    return;
+  }
+  list.innerHTML = queryHistory.map(q =>
+    `<div class="history-item" onclick="useHistoryPrompt(${JSON.stringify(q)})" title="${escHtml(q)}">${escHtml(q)}</div>`
+  ).join("");
+}
+
+function useHistoryPrompt(q) {
+  document.getElementById("userInput").value = q;
+  autoResize(document.getElementById("userInput"));
+  validateInput();
+  document.getElementById("userInput").focus();
+}
+
+// ── Persistence ──────────────────────────────────────────────────────────
+function saveChatToStorage() {
+  const wrap = document.getElementById("messages");
+  const msgs = [...wrap.querySelectorAll(".msg")].map(m => ({
+    role: m.classList.contains("user") ? "user" : (m.classList.contains("error") ? "error" : "bot"),
+    raw: m.dataset.raw || "",
+    ts: m.dataset.ts || "",
+    execTime: m.dataset.exec || ""
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({msgs, queryCount}));
+}
+
+function loadChatFromStorage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (saved && saved.msgs && saved.msgs.length) {
+      document.getElementById("welcomeBlock")?.remove();
+      saved.msgs.forEach(m => {
+        if (m.role === "error") {
+          appendError(m.raw, null, true, m.ts);
+        } else {
+          appendMsg(m.role, m.raw, true, m.ts, m.execTime);
+        }
+      });
+      queryCount = saved.queryCount || 0;
+      document.getElementById("queryCount").textContent = queryCount;
+    }
+    queryHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    renderHistory();
+  } catch (e) { /* ignore corrupt storage */ }
+}
+
+// ── Input validation ───────────────────────────────────────────────────────
+const DANGEROUS_PATTERNS = /(\bDROP\b|\bDELETE\b|\bTRUNCATE\b|\bALTER\b|\bINSERT\b|\bUPDATE\b|;--|\bEXEC\b|\bUNION\b\s+\bSELECT\b)/i;
+const MAX_LEN = 600;
+
+function validateInput() {
+  const input = document.getElementById("userInput");
+  const errEl = document.getElementById("inputError");
+  const wrap = document.getElementById("inputWrap");
+  const counter = document.getElementById("charCounter");
+  const val = input.value;
+  counter.textContent = `${val.length} / ${MAX_LEN}`;
+  counter.classList.toggle("warn", val.length > MAX_LEN - 50);
+
+  let msg = "";
+  if (val.length > 0 && val.trim().length === 0) {
+    msg = "Question can't be just whitespace.";
+  } else if (val.length > MAX_LEN) {
+    msg = `Question is too long (max ${MAX_LEN} characters).`;
+  } else if (DANGEROUS_PATTERNS.test(val)) {
+    msg = "Please ask in plain English — raw SQL keywords like DROP/DELETE/INSERT aren't needed; the agent writes SQL for you.";
+  }
+
+  errEl.textContent = msg;
+  errEl.classList.toggle("show", !!msg);
+  wrap.classList.toggle("invalid", !!msg);
+  return !msg;
+}
+
+document.getElementById("userInput").addEventListener("input", function() {
+  autoResize(this);
+  validateInput();
+});
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+function timestamp() {
+  return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+
+function escHtml(t) {
+  return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// Detect a markdown-style table in text and convert to HTML table
+function extractMarkdownTable(text) {
+  const lines = text.split("\n").map(l => l.trim());
+  let start = -1;
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (/^\|.*\|$/.test(lines[i]) && /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(lines[i+1])) {
+      start = i; break;
+    }
+  }
+  if (start === -1) return null;
+  let end = start + 2;
+  while (end < lines.length && /^\|.*\|$/.test(lines[end])) end++;
+  const tableLines = lines.slice(start, end);
+  const headerCells = tableLines[0].replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  const bodyRows = tableLines.slice(2).map(l => l.replace(/^\||\|$/g, "").split("|").map(c => c.trim()));
+  const before = text.split("\n").slice(0, start).join("\n").trim();
+  const after = text.split("\n").slice(end).join("\n").trim();
+  return {headerCells, bodyRows, before, after};
+}
+
+function buildResultTableHtml(headerCells, bodyRows) {
+  const thead = headerCells.map(h => `<th>${escHtml(h)}</th>`).join("");
+  const rows = bodyRows.map(r => `<tr>${r.map(c => `<td>${escHtml(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="result-table-wrap"><table class="result-table"><thead><tr>${thead}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function appendMsg(role, text, skipStore, savedTs, savedExec) {
+  const wrap = document.getElementById("messages");
+  const welcome = wrap.querySelector(".welcome");
+  if (welcome) welcome.remove();
+
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.dataset.raw = text;
+  div.dataset.ts = savedTs || timestamp();
+  if (savedExec) div.dataset.exec = savedExec;
+  const avatar = role === "user" ? "👤" : "🤖";
+
+  let bubbleContent;
+  let sqlForCopy = "";
+  if (role === "user") {
+    bubbleContent = escHtml(text);
+  } else {
+    let working = text;
+    const sqlMatch = working.match(/```sql\n?([\s\S]+?)```/i) || working.match(/SELECT[\s\S]+?(?:;|$)/i);
+    let sqlBlockHtml = "";
+    if (sqlMatch) {
+      sqlForCopy = (sqlMatch[1] || sqlMatch[0]).trim();
+      working = working.replace(sqlMatch[0], '').trim();
+      sqlBlockHtml = `
+        <div class="sql-block">
+          <div class="sql-header"><span>⚡ Generated SQL</span><span class="copy-btn" onclick="copyText(this, ${JSON.stringify(sqlForCopy)})">📋 Copy SQL</span></div>
+          <div class="sql-body">${escHtml(sqlForCopy)}</div>
+        </div>`;
+    }
+
+    const tableInfo = extractMarkdownTable(working);
+    let bodyHtml;
+    if (tableInfo) {
+      bodyHtml = `${escHtml(tableInfo.before)}${buildResultTableHtml(tableInfo.headerCells, tableInfo.bodyRows)}${tableInfo.after ? '<br>' + escHtml(tableInfo.after) : ''}`;
+    } else {
+      bodyHtml = escHtml(working);
+    }
+
+    bubbleContent = `${bodyHtml}${sqlBlockHtml}
+      <div class="bubble-actions">
+        <span class="copy-btn" onclick="copyText(this, ${JSON.stringify(text)})">📋 Copy answer</span>
+      </div>`;
+  }
+
+  const execLabel = savedExec ? `<span class="exec-time">⏱ ${savedExec}</span>` : (div.dataset.exec ? `<span class="exec-time">⏱ ${div.dataset.exec}</span>` : "");
+
+  div.innerHTML = `
+    <div class="avatar">${avatar}</div>
+    <div class="msg-content">
+      <div class="bubble">${bubbleContent}</div>
+      <div class="timestamp"><span>${div.dataset.ts}</span>${execLabel}</div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  if (!skipStore) saveChatToStorage();
+}
+
+function appendError(message, retryFn, skipStore, savedTs) {
+  const wrap = document.getElementById("messages");
+  const welcome = wrap.querySelector(".welcome");
+  if (welcome) welcome.remove();
+
+  const div = document.createElement("div");
+  div.className = "msg error";
+  div.dataset.raw = message;
+  div.dataset.ts = savedTs || timestamp();
+
+  const retryId = "retry_" + Math.random().toString(36).slice(2);
+  div.innerHTML = `
+    <div class="avatar">⚠️</div>
+    <div class="msg-content">
+      <div class="bubble">
+        <div class="error-head">⚠️ Something went wrong</div>
+        <div>${escHtml(message)}</div>
+        ${retryFn ? `<div class="retry-btn" id="${retryId}">↺ Retry</div>` : ""}
+      </div>
+      <div class="timestamp">${div.dataset.ts}</div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  if (retryFn) {
+    document.getElementById(retryId).addEventListener("click", () => {
+      div.remove();
+      retryFn();
+    });
+  }
+  if (!skipStore) saveChatToStorage();
+}
+
+function copyText(el, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = el.textContent;
+    el.textContent = "✓ Copied";
+    setTimeout(() => { el.textContent = original; }, 1500);
+  }).catch(() => showToast("Copy failed"));
+}
+
+function showThinking() {
+  const wrap = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = "msg bot thinking";
+  div.id = "thinking";
+  div.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div class="msg-content">
+      <div class="bubble">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function removeThinking() {
+  const el = document.getElementById("thinking");
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  if (isWaiting) return;
+  const input = document.getElementById("userInput");
+  const question = input.value.trim();
+  if (!question) return;
+  if (!validateInput()) return;
+
+  if (!serverOnline) {
+    const online = await checkServer(false);
+    if (!online) {
+      showToast("Server is offline — message not sent");
+      return;
+    }
+  }
+
+  input.value = "";
+  input.style.height = "auto";
+  document.getElementById("charCounter").textContent = `0 / ${MAX_LEN}`;
+  isWaiting = true;
+  document.getElementById("sendBtn").disabled = true;
+
+  appendMsg("user", question);
+  showThinking();
+  addToHistory(question);
+
+  const startedAt = performance.now();
+  const model = document.getElementById("modelSelect").value;
+
+  try {
+    const res = await fetch(`${API}/api/chat`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({question, model})
+    });
+
+    if (!res.ok) {
+      let errText = `Server responded with status ${res.status}`;
+      try {
+        const errJson = await res.json();
+        errText = errJson.error || errJson.message || errText;
+      } catch {}
+      removeThinking();
+      appendError(errText, () => retrySend(question));
+      setServerStatus(res.status < 500);
+      isWaiting = false;
+      document.getElementById("sendBtn").disabled = false;
+      return;
+    }
+
+    const data = await res.json();
+    const execTime = ((performance.now() - startedAt) / 1000).toFixed(2) + "s";
+    removeThinking();
+    setServerStatus(true);
+
+    queryCount++;
+    document.getElementById("queryCount").textContent = queryCount;
+
+    const msgWrap = document.getElementById("messages");
+    appendMsg("bot", data.answer || data.error || "No response.");
+    const lastMsg = msgWrap.lastElementChild;
+    lastMsg.dataset.exec = execTime;
+    const tsRow = lastMsg.querySelector(".timestamp");
+    tsRow.innerHTML += `<span class="exec-time">⏱ ${execTime}</span>`;
+    saveChatToStorage();
+
+  } catch (e) {
+    removeThinking();
+    setServerStatus(false);
+    appendError("Could not reach the server. Make sure app.py is running on port 5000.", () => retrySend(question));
+  }
+
+  isWaiting = false;
+  document.getElementById("sendBtn").disabled = false;
+  input.focus();
+}
+
+function retrySend(question) {
+  const input = document.getElementById("userInput");
+  input.value = question;
+  sendMessage();
+}
+
+function usePrompt(el) {
+  const input = document.getElementById("userInput");
+  input.value = el.textContent.replace(/^[^\w]+/, '').trim();
+  input.focus();
+  autoResize(input);
+  validateInput();
+}
+
+function clearChat() {
+  const wrap = document.getElementById("messages");
+  wrap.innerHTML = `
+    <div class="welcome" id="welcomeBlock">
+      <div class="welcome-icon">🧠</div>
+      <h2>Ask anything about your data</h2>
+      <p>Type a question in plain English — the agent writes and runs the SQL automatically.</p>
+      <div class="welcome-chips">
+        <div class="welcome-chip" onclick="usePrompt(this)">📊 Department budgets</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">👑 Highest paid employee</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">🔗 Project assignments</div>
+        <div class="welcome-chip" onclick="usePrompt(this)">📅 Recent hires</div>
+      </div>
+    </div>`;
+  queryCount = 0;
+  document.getElementById("queryCount").textContent = "0";
+  localStorage.removeItem(STORAGE_KEY);
+  showToast("Chat cleared");
+}
+
+function exportChat() {
+  const msgs = [...document.querySelectorAll('.msg')];
+  if (!msgs.length) { showToast("Nothing to export yet!"); return; }
+  const lines = msgs.map(m => {
+    const role = m.classList.contains('user') ? 'You' : (m.classList.contains('error') ? 'Error' : 'Agent');
+    const text = m.dataset.raw || m.querySelector('.bubble')?.innerText || '';
+    return `[${role}] ${text}`;
+  });
+  const blob = new Blob([lines.join('\n\n')], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'querymind-chat.txt';
+  a.click();
+  showToast("Chat exported ✓");
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ── Auto-resize textarea ──────────────────────────────────────────────────
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 130) + "px";
+}
+document.getElementById("userInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ── Init ────────────────────────────────────────────────────────────────────
+loadChatFromStorage();
+loadSchema();
+validateInput();
+setInterval(() => { if (!isWaiting) checkServer(false); }, 30000); // periodic health check
+</script>
+</body>
+</html>
