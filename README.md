@@ -1,119 +1,123 @@
-# 🗄️ SQL Agent Chatbot
-> Natural language → SQL queries, powered by **LangChain + OpenAI + SQLite + Flask**
+# 🧠 QueryMind — Natural Language SQL Agent
+
+QueryMind lets you ask questions about your database in plain English. An AI agent writes the SQL, runs it against your database, and returns a clean, readable answer — no SQL knowledge required.
+
+> Built as part of a hands-on Agentic AI learning journey — exploring how LLM agents reason, plan, and act on real data.
+
+---
+
+## ✨ Features
+
+- **Natural language → SQL** — ask "Who are the top 3 highest-paid employees?" and get an instant answer
+- **Live schema browser** — searchable sidebar showing every table and column
+- **Query history** — last 5 questions saved and reusable with one click
+- **Chat persistence** — conversation survives page refresh (stored in `localStorage`)
+- **Error handling with retry** — failed requests show a clear error and a one-click retry
+- **Offline detection** — automatically detects if the Flask backend is down and shows a banner
+- **Input validation** — blocks empty input, overly long questions, and raw SQL injection attempts
+- **Auto-rendered result tables** — tabular answers render as a real HTML table, not plain text
+- **Copy buttons** — copy the generated SQL or the full answer in one click
+- **Model selector** — switch between Groq models (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b`)
+- **Dark / light theme toggle**
+- **Query execution time** displayed per response
+- **Chat export** — download the full conversation as a `.txt` file
+
+---
+
+## 🏗️ Tech Stack
+
+| Layer       | Technology                          |
+|-------------|--------------------------------------|
+| Agent       | LangChain SQL Agent + Groq API       |
+| Backend     | Flask (Python)                       |
+| Frontend    | Single-file HTML/CSS/JS (no build tools) |
+| Database    | SQLite (`company.db`)                |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-sql_agent_chatbot/
-│
-├── app.py            ← Flask server (run this)
-├── agent.py          ← LangChain SQL Agent logic
-├── create_db.py      ← Creates company.db with sample data
-├── requirements.txt  ← Python dependencies
-├── .env              ← Your OpenAI API key goes here
-│
-└── static/
-    └── index.html    ← Chat UI (served by Flask)
+querymind/
+├── app.py              # Flask server + API routes
+├── agent.py            # LangChain SQL agent setup & query execution
+├── company.db          # SQLite database
+├── static/
+│   └── index.html      # Frontend (chat UI)
+├── .env                # API keys (not committed)
+└── requirements.txt
 ```
 
 ---
 
-## 🚀 How to Run in VS Code
+## ⚙️ Setup
 
-### Step 1 — Open the folder in VS Code
-Extract the zip, then:
-```
-File → Open Folder → select `sql_agent_chatbot`
-```
-
-### Step 2 — Open the Terminal
-```
-Terminal → New Terminal   (or Ctrl + `)
-```
-
-### Step 3 — Create a virtual environment
+### 1. Clone & install dependencies
 ```bash
-python -m venv venv
-```
-
-Activate it:
-- **Windows:**  `venv\Scripts\activate`
-- **Mac/Linux:** `source venv/bin/activate`
-
-### Step 4 — Install dependencies
-```bash
+git clone <your-repo-url>
+cd querymind
 pip install -r requirements.txt
 ```
 
-### Step 5 — Add your Groq API key
-Open `.env` and replace the placeholder:
+### 2. Add your environment variables
+Create a `.env` file in the project root:
 ```
-GROQ_API_KEY=your-groq-api-key-here
+GROQ_API_KEY=your_groq_api_key_here
 ```
-Get your key from: https://console.groq.com/account/api-keys
 
-### Step 6 — Create the sample database
-```bash
-python create_db.py
-```
-This creates `company.db` with employees, departments, and projects.
-
-### Step 7 — Start the server
+### 3. Run the app
 ```bash
 python app.py
 ```
-You'll see:
-```
-🔧 Initializing SQL Agent...
-✅ SQL Agent ready!
- * Running on http://127.0.0.1:5000
-```
 
-### Step 8 — Open the chatbot
-Go to: **http://localhost:5000**
+This starts the Flask server on `http://127.0.0.1:5000/` and **automatically opens it in your default browser** — no Live Server, no VS Code extension needed.
 
 ---
 
-## 💬 Sample Questions to Try
+## 🧩 How It Works
 
-| Question | What it does |
-|---|---|
-| Who are the top 3 highest-paid employees? | Sorts by salary DESC |
-| List all In Progress projects | Filters by status |
-| Which department has the highest budget? | Aggregation |
-| How many employees are in each department? | GROUP BY |
-| Show employees hired after 2022 | Date filtering |
-| Which employees are assigned to project 4? | JOIN query |
+1. You type a question in the chat input.
+2. The frontend sends it to `POST /api/chat`.
+3. The LangChain agent interprets the question, generates SQL against the known schema, and executes it on `company.db`.
+4. The result is returned as a natural language answer (with the generated SQL attached) and rendered in the UI — as a table if the data is tabular.
 
 ---
 
-## 🧠 How it Works
+## 🔌 API Endpoints
 
-```
-User types question
-       ↓
-Flask /api/chat endpoint
-       ↓
-LangChain SQL Agent (GPT-3.5-turbo)
-  → inspects DB schema
-  → writes SQL query
-  → executes it on company.db
-  → interprets results
-       ↓
-Natural language answer returned to UI
-```
+| Method | Endpoint        | Description                                  |
+|--------|-----------------|-----------------------------------------------|
+| GET    | `/`             | Serves the frontend (`static/index.html`)     |
+| GET    | `/api/schema`   | Returns the database schema (tables/columns)  |
+| POST   | `/api/chat`     | Accepts `{ "question": "...", "model": "..." }`, returns `{ "answer": "..." }` |
 
 ---
 
-## ⚙️ Customizing
+## 🗄️ Sample Schema
 
-**Change the database:** Edit `db_path` in `app.py → build_agent()`
+- **departments** — id, name, budget
+- **employees** — id, name, department_id, role, salary, hire_date
+- **projects** — id, title, dept_id, status, budget, start_date, end_date
+- **project_assignments** — employee_id, project_id, role
 
-**Use GPT-4:** Edit `model` in `app.py → build_agent(model="gpt-4")`
+---
 
-**Connect your own DB:** Replace the SQLite URI in `agent.py`:
-```python
-db = SQLDatabase.from_uri("postgresql://user:pass@host/dbname")
-```
+## 🚧 Roadmap / Ideas
+
+- [ ] Wire the model selector through to `agent.py` for true per-request model switching
+- [ ] Multi-database support
+- [ ] Streaming responses
+- [ ] User authentication for multi-user deployments
+- [ ] Query result charting (bar/line/pie)
+
+---
+
+## 📜 License
+
+This project is open for personal and educational use. Adapt freely.
+
+---
+
+## 🙋 About
+
+Built while learning Agentic AI hands-on — exploring how to take LLM agents beyond chat into real, structured, production-style tools.
