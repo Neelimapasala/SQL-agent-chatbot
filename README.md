@@ -1,3 +1,17 @@
+<!-- ✨ Animated banner: generated in github.com/Neelimapasala/Neelimapasala -->
+<p align="center">
+  <a href="https://github.com/Neelimapasala"><img src="https://raw.githubusercontent.com/Neelimapasala/Neelimapasala/output/banner-querymind.svg?v=1" width="100%" alt="QueryMind · SQL Agent: Talk to your database in plain English."/></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/languages/top/Neelimapasala/SQL-agent-chatbot?style=for-the-badge&color=7f00ff&labelColor=0d1117" alt="top language"/>
+  <img src="https://img.shields.io/github/last-commit/Neelimapasala/SQL-agent-chatbot?style=for-the-badge&color=00d4ff&labelColor=0d1117" alt="last commit"/>
+  <img src="https://img.shields.io/github/stars/Neelimapasala/SQL-agent-chatbot?style=for-the-badge&color=ff2bd6&labelColor=0d1117" alt="stars"/>
+  <img src="https://img.shields.io/badge/AGENTIC%20AI-a78bfa?style=for-the-badge&labelColor=0d1117" alt="AGENTIC AI"/>
+</p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/Neelimapasala/Neelimapasala/output/divider.svg?v=1" width="100%"/></p>
+
 # 🧠 QueryMind — Natural Language SQL Agent
 
 QueryMind lets you ask questions about your database in plain English. An AI agent writes the SQL, runs it against your database, and returns a clean, readable answer — no SQL knowledge required.
@@ -121,3 +135,10 @@ This project is open for personal and educational use. Adapt freely.
 ## 🙋 About
 
 Built while learning Agentic AI hands-on — exploring how to take LLM agents beyond chat into real, structured, production-style tools.
+
+
+<p align="center"><img src="https://raw.githubusercontent.com/Neelimapasala/Neelimapasala/output/divider.svg?v=1" width="100%"/></p>
+
+<p align="center">
+  <a href="https://github.com/Neelimapasala"><img src="https://raw.githubusercontent.com/Neelimapasala/Neelimapasala/output/repo-footer.svg?v=1" width="100%" alt="Crafted by Neelima Pasala"/></a>
+</p>
